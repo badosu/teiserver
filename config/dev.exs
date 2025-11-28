@@ -49,18 +49,16 @@ config :dart_sass,
     cd: Path.expand("../assets", __DIR__)
   ]
 
+config :teiserver, Teiserver.SpringTcpServer,
+  heartbeat_interval: nil,
+  heartbeat_timeout: nil
+
 config :teiserver, Teiserver,
   certs: [
     keyfile: "priv/certs/localhost.key",
     certfile: "priv/certs/localhost.crt",
     cacertfile: "priv/certs/localhost.crt"
   ],
-  ports: [
-    tcp: 8200,
-    tls: 8201
-  ],
-  heartbeat_interval: nil,
-  heartbeat_timeout: nil,
   enable_discord_bridge: false,
   accept_all_emails: true
 

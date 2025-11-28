@@ -1,23 +1,34 @@
 defmodule Teiserver.TeiserverTestLib do
   @moduledoc false
-  alias Teiserver.{Client, CacheUser, Account}
+  alias Teiserver.{Client, CacheUser, Account, Coordinator}
   alias Teiserver.Account.AccoladeLib
+  alias Teiserver.Protocols.Spring
   alias Teiserver.Coordinator.CoordinatorServer
   alias Teiserver.Data.Types, as: T
   @host ~c"127.0.0.1"
 
-  @spec raw_setup :: %{socket: port()}
-  def raw_setup() do
-    {:ok, socket} = :gen_tcp.connect(@host, 9200, active: false)
+  @spec raw_setup(any()) :: %{socket: port()}
+  def raw_setup(opts) do
+    port = get_in(opts, [:spring, :tcp, :port]) |> dbg()
+    result = :gen_tcp.connect(@host, port, active: false)
+
+    dbg(connect: [@host, port, active: false], result: result)
+
+    {:ok, socket} = result
+
+    DynamicSupervisor.which_children(Teiserver.Account.AccoladeSupervisor)
+
     %{socket: socket}
   end
 
   # Looks like we might want to use https://erlang.org/documentation/doc-12.0/lib/ssl-10.4/doc/html/ssl.html#connect-2
   # and upgrade the connection instead?
-  @spec spring_tls_setup :: %{socket: port()}
-  def spring_tls_setup() do
+  @spec spring_tls_setup(any()) :: %{socket: port()}
+  def spring_tls_setup(opts) do
+    port = get_in(opts, [:spring, :tls, :port]) |> dbg()
+
     {:ok, socket} =
-      :ssl.connect(@host, 9201,
+      :ssl.connect(@host, port,
         active: false,
         verify: :verify_none
       )
@@ -60,8 +71,8 @@ defmodule Teiserver.TeiserverTestLib do
     end
   end
 
-  @spec async_auth_setup(module(), nil | map()) :: %{user: map(), state: map()}
-  def async_auth_setup(protocol, user \\ nil) do
+  @spec async_auth_setup(nil | map()) :: %{user: map(), state: map()}
+  def async_auth_setup(user \\ nil) do
     user = if user, do: user, else: new_user()
 
     token = CacheUser.create_token(user)
@@ -73,15 +84,18 @@ defmodule Teiserver.TeiserverTestLib do
 
     Client.login(user, :test, "127.0.0.1")
 
-    state = mock_async_state(protocol.protocol_in(), protocol.protocol_out(), user)
+    state = mock_async_state(user)
+
+    ExUnit.Callbacks.on_exit(fn -> Teiserver.Client.disconnect(user.id) end)
+
     %{user: user, state: state}
   end
 
   @spec auth_setup(nil | map()) :: %{socket: port(), user: map(), pid: pid()}
-  def auth_setup(user \\ nil) do
+  def auth_setup(context, user \\ nil) do
     user = if user, do: user, else: new_user()
 
-    %{socket: socket} = raw_setup()
+    %{socket: socket} = raw_setup(context)
     # Ignore the TASSERVER
     _ = _recv_raw(socket)
 
@@ -115,7 +129,7 @@ defmodule Teiserver.TeiserverTestLib do
   end
 
   def _send_lines(%{mock: true} = state, msg) do
-    state.protocol_in.data_in(msg, state)
+    Spring.protocol_in().data_in(msg, state)
   end
 
   def _send_raw({:sslsocket, _, _} = socket, msg) do
@@ -209,7 +223,7 @@ defmodule Teiserver.TeiserverTestLib do
     }
   end
 
-  def mock_state_raw(protocol_in, protocol_out, socket \\ nil) do
+  def mock_state_raw(socket \\ nil) do
     socket = if socket, do: socket, else: mock_socket()
 
     %{
@@ -218,8 +232,6 @@ defmodule Teiserver.TeiserverTestLib do
       last_msg: System.system_time(:second) - 5,
       socket: socket,
       transport: socket.transport,
-      protocol_in: protocol_in,
-      protocol_out: protocol_out,
       ip: "127.0.0.1",
 
       # Client state
@@ -242,7 +254,7 @@ defmodule Teiserver.TeiserverTestLib do
     }
   end
 
-  def mock_state_auth(protocol_in, protocol_out, socket \\ nil) do
+  def mock_state_auth(socket \\ nil) do
     socket = if socket, do: socket, else: mock_socket()
     user = new_user()
     Client.login(user, :test, "127.0.0.1")
@@ -253,8 +265,6 @@ defmodule Teiserver.TeiserverTestLib do
       last_msg: System.system_time(:second) - 5,
       socket: socket,
       transport: socket.transport,
-      protocol_in: protocol_in,
-      protocol_out: protocol_out,
       ip: "127.0.0.1",
 
       # Client state
@@ -271,7 +281,9 @@ defmodule Teiserver.TeiserverTestLib do
       print_client_messages: false,
       print_server_messages: false,
       exempt_from_cmd_throttle: true,
-      script_password: nil
+      script_password: nil,
+      heartbeat_timeout: nil,
+      heartbeat_interval: nil
     }
   end
 
@@ -283,7 +295,7 @@ defmodule Teiserver.TeiserverTestLib do
     }
   end
 
-  def mock_async_state(protocol_in, protocol_out, user \\ nil) do
+  def mock_async_state(user \\ nil) do
     socket = mock_socket()
     user = if user, do: user, else: new_user()
 
@@ -297,8 +309,6 @@ defmodule Teiserver.TeiserverTestLib do
       last_msg: System.system_time(:second) - 5,
       socket: socket,
       transport: make_async_transport(),
-      protocol_in: protocol_in,
-      protocol_out: protocol_out,
       ip: "127.0.0.1",
 
       # Client state
@@ -522,6 +532,17 @@ defmodule Teiserver.TeiserverTestLib do
     seed_badge_types()
   end
 
+  @con_cache_list [
+    :telemetry_complex_client_event_types_cache,
+    :telemetry_complex_lobby_event_types_cache,
+    :telemetry_complex_match_event_types_cache,
+    :telemetry_complex_server_event_types_cache,
+    :telemetry_property_types_cache,
+    :telemetry_simple_client_event_types_cache,
+    :telemetry_simple_lobby_event_types_cache,
+    :telemetry_simple_match_event_types_cache,
+    :telemetry_simple_server_event_types_cache
+  ]
   @doc """
   Traverse most ConCache tables and delete everything from them.
   Because ETS tables are global, failing to clear the cache between tests may introduce errors
@@ -533,25 +554,16 @@ defmodule Teiserver.TeiserverTestLib do
   for some tests, but this needs further investigation.
 
   See https://github.com/sasa1977/con_cache?tab=readme-ov-file#testing-in-your-application
-
-  returns :ok
   """
   def clear_all_con_caches() do
-    cache_list = [
-      :telemetry_complex_client_event_types_cache,
-      :telemetry_complex_lobby_event_types_cache,
-      :telemetry_complex_match_event_types_cache,
-      :telemetry_complex_server_event_types_cache,
-      :telemetry_property_types_cache,
-      :telemetry_simple_client_event_types_cache,
-      :telemetry_simple_lobby_event_types_cache,
-      :telemetry_simple_match_event_types_cache,
-      :telemetry_simple_server_event_types_cache
-    ]
+    Enum.each(@con_cache_list, &clear_cache/1)
+  end
 
-    Enum.each(cache_list, &clear_cache/1)
-
-    :ok
+  def allow_con_caches() do
+    for con_cache_name <- @con_cache_list do
+      dbg(whereis: Process.whereis(con_cache_name))
+      Ecto.Adapters.SQL.Sandbox.allow(Teiserver.Repo, self(), con_cache_name)
+    end
   end
 
   def clear_cache(cache) do
@@ -559,6 +571,14 @@ defmodule Teiserver.TeiserverTestLib do
     |> ConCache.ets()
     |> :ets.tab2list()
     |> Enum.each(fn {key, _} -> ConCache.delete(cache, key) end)
+  end
+
+  def start_coordinator() do
+    {:ok, pid} = Coordinator.start_coordinator()
+
+    ExUnit.Callbacks.on_exit(fn ->
+      DynamicSupervisor.terminate_child(Coordinator.DynamicSupervisor, pid)
+    end)
   end
 end
 

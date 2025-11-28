@@ -94,30 +94,43 @@ config :teiserver, TeiserverWeb.Endpoint,
       endpoint_defaults[:secret_key_base]
     )
 
-use_tls? = Teiserver.ConfigHelpers.get_env("TEI_TLS_PRIVATE_KEY_PATH", nil) != nil
+spring_listeners =
+  Application.get_env(:teiserver, Teiserver.SpringTcpServer)
+  |> Keyword.fetch!(:listeners)
+
+use_tls? =
+  Teiserver.ConfigHelpers.get_env("TEI_TLS_PRIVATE_KEY_PATH", nil) != nil or
+    Keyword.get(spring_listeners, :disable_startup) == true
+
 config :teiserver, Teiserver, use_tls?: use_tls?
 
 tei_defaults = Application.get_env(:teiserver, Teiserver)
 
-if use_tls? do
-  certificates = [
-    keyfile: Teiserver.ConfigHelpers.get_env("TEI_TLS_PRIVATE_KEY_PATH"),
-    certfile: Teiserver.ConfigHelpers.get_env("TEI_TLS_CERT_PATH"),
-    cacertfile: Teiserver.ConfigHelpers.get_env("TEI_TLS_CA_CERT_PATH")
-  ]
+spring_listeners =
+  Application.get_env(:teiserver, Teiserver.SpringTcpServer)
+  |> Keyword.fetch!(:listeners)
 
-  config :teiserver, Teiserver,
-    ports: [
-      tcp:
-        Teiserver.ConfigHelpers.get_env("TEI_SPRING_TCP_PORT", tei_defaults[:ports][:tcp], :int),
-      tls:
-        Teiserver.ConfigHelpers.get_env("TEI_SPRING_TLS_PORT", tei_defaults[:ports][:tls], :int)
-    ],
-    certs: certificates
+spring_listeners =
+  if Keyword.get(spring_listeners, :tcp) do
+    # If TCP listener is enabled put the port option
+    get_and_update_in(spring_listeners, [:tcp, :socket_opts, :port], fn default ->
+      {default, Teiserver.ConfigHelpers.get_env("TEI_SPRING_TCP_PORT", default, :int)}
+    end)
+    |> elem(1)
+  else
+    spring_listeners
+  end
+
+if use_tls? do
+  cert_opts = [
+    keyfile: System.get_env("TEI_TLS_PRIVATE_KEY_PATH"),
+    certfile: System.get_env("TEI_TLS_CERT_PATH"),
+    cacertfile: System.get_env("TEI_TLS_CA_CERT_PATH")
+  ]
 
   config :teiserver, TeiserverWeb.Endpoint,
     https:
-      certificates ++
+      cert_opts ++
         [
           versions: [:"tlsv1.2"],
           # dhfile is not supported for tls 1.3
@@ -172,12 +185,31 @@ if use_tls? do
     root: ".",
     cache_static_manifest: "priv/static/cache_manifest.json",
     server: true
+
+  spring_listeners =
+    if Keyword.get(spring_listeners, :tls) do
+      # If TLS listener is enabled put the certificate and port options
+      get_and_update_in(
+        spring_listeners,
+        [:tls, :socket_opts],
+        fn socket_opts ->
+          new_opts = Keyword.merge(socket_opts, cert_opts)
+
+          default_port = Keyword.fetch!(socket_opts, :port)
+          port = Teiserver.ConfigHelpers.get_env("TEI_SPRING_TLS_PORT", default_port, :int)
+
+          {socket_opts, Keyword.put(new_opts, :port, port)}
+        end
+      )
+      |> elem(1)
+    else
+      spring_listeners
+    end
+
+  config :teiserver, Teiserver.SpringTcpServer, listeners: spring_listeners
 else
-  config :teiserver, Teiserver,
-    ports: [
-      tcp:
-        Teiserver.ConfigHelpers.get_env("TEI_SPRING_TCP_PORT", tei_defaults[:ports][:tcp], :int)
-    ]
+  config :teiserver, Teiserver.SpringTcpServer,
+    listeners: Keyword.put(spring_listeners, :tls, nil)
 end
 
 config :teiserver, Teiserver.Account.Guardian,

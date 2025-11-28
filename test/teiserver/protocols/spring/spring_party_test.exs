@@ -6,10 +6,10 @@ defmodule Teiserver.Protocols.Spring.SpringPartyTest do
   alias Teiserver.Support.Polling
 
   import Teiserver.TeiserverTestLib,
-    only: [auth_setup: 0, _send_raw: 2, _recv_until: 1]
+    only: [auth_setup: 1, _send_raw: 2, _recv_until: 1]
 
-  defp setup_user(_context) do
-    %{socket: socket, user: user} = auth_setup()
+  defp setup_user(context) do
+    %{socket: socket, user: user} = auth_setup(context)
     {:ok, socket: socket, user: user}
   end
 
@@ -38,9 +38,9 @@ defmodule Teiserver.Protocols.Spring.SpringPartyTest do
   end
 
   describe "invite" do
-    setup do
-      {:ok, socket: socket1, user: user1} = setup_user(nil)
-      {:ok, socket: socket2, user: user2} = setup_user(nil)
+    setup(context) do
+      {:ok, socket: socket1, user: user1} = setup_user(context)
+      {:ok, socket: socket2, user: user2} = setup_user(context)
       # absorb the broadcasted message that another player is online
       "ADDUSER " <> _ = _recv_until(socket1)
       {:ok, socket1: socket1, user1: user1, socket2: socket2, user2: user2}
@@ -75,9 +75,9 @@ defmodule Teiserver.Protocols.Spring.SpringPartyTest do
   end
 
   describe "handle invite" do
-    setup do
-      {:ok, socket: socket1, user: user1} = setup_user(nil)
-      {:ok, socket: socket2, user: user2} = setup_user(nil)
+    setup(context) do
+      {:ok, socket: socket1, user: user1} = setup_user(context)
+      {:ok, socket: socket2, user: user2} = setup_user(context)
 
       # absorb the broadcasted message that another player is online
       "ADDUSER " <> _ = _recv_until(socket1)
@@ -156,9 +156,9 @@ defmodule Teiserver.Protocols.Spring.SpringPartyTest do
   end
 
   describe "leaving parties" do
-    setup do
-      {:ok, socket: socket1, user: user1} = setup_user(nil)
-      {:ok, socket: socket2, user: user2} = setup_user(nil)
+    setup(context) do
+      {:ok, socket: socket1, user: user1} = setup_user(context)
+      {:ok, socket: socket2, user: user2} = setup_user(context)
 
       # absorb the broadcasted message that another player is online
       "ADDUSER " <> _ = _recv_until(socket1)
@@ -214,9 +214,9 @@ defmodule Teiserver.Protocols.Spring.SpringPartyTest do
 
   # https://github.com/beyond-all-reason/teiserver/actions/runs/18627831079/job/53108311559?pr=831
   @tag :needs_attention
-  test "both in parties" do
-    {:ok, socket: socket1, user: user1} = setup_user(nil)
-    {:ok, socket: socket2, user: user2} = setup_user(nil)
+  test "both in parties", context do
+    {:ok, socket: socket1, user: user1} = setup_user(context)
+    {:ok, socket: socket2, user: user2} = setup_user(context)
     # absorb the broadcasted message that another player is online
     "ADDUSER " <> _ = _recv_until(socket1)
 
@@ -238,15 +238,18 @@ defmodule Teiserver.Protocols.Spring.SpringPartyTest do
     assert {"s.party.invite_cancelled", [^party1, ^username2], _} = cancelled
   end
 
-  test "with 3 players" do
+  test "with 3 players", context do
     # only test happy paths, but with more players to check broadcast mechanics
-    {:ok, socket: socket1, user: user1} = setup_user(nil)
-    {:ok, socket: socket2, user: user2} = setup_user(nil)
-    {:ok, socket: socket3, user: user3} = setup_user(nil)
+    {:ok, socket: socket1, user: user1} = setup_user(context)
+    {:ok, socket: socket2, user: user2} = setup_user(context)
+    {:ok, socket: socket3, user: user3} = setup_user(context)
 
     username1 = user1.name
     username2 = user2.name
     username3 = user3.name
+
+    # WARN: Using random for usernames will eventually flake
+    assert username1 != username2 != username3
 
     # absorb the broadcasted message that another player is online
     _recv_until(socket1)

@@ -33,7 +33,12 @@ defmodule TeiserverWeb.ConnCase do
   end
 
   setup tags do
-    :ok = Ecto.Adapters.SQL.Sandbox.checkout(Teiserver.Repo)
+    unless tags[:async] do
+      :ok = Ecto.Adapters.SQL.Sandbox.checkout(Teiserver.Repo)
+    end
+
+    context = Teiserver.DataCase.setup_sandbox(tags)
+
     Teiserver.TeiserverTestLib.clear_all_con_caches()
     Teiserver.Config.update_site_config("system.Use geoip", false)
     on_exit(&Teiserver.TeiserverTestLib.clear_all_con_caches/0)
@@ -49,6 +54,6 @@ defmodule TeiserverWeb.ConnCase do
     end
 
     Teiserver.Support.Tachyon.tachyon_case_setup(tags)
-    {:ok, conn: Phoenix.ConnTest.build_conn()}
+    {:ok, Keyword.merge(context, conn: Phoenix.ConnTest.build_conn())}
   end
 end

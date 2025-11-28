@@ -15,15 +15,20 @@ config :teiserver, Teiserver.Repo,
   pool_size: 50,
   timeout: 300_000
 
+config :teiserver, Teiserver.SpringTcpServer,
+  listeners: [
+    # Don't start listeners at startup, we'll start manually
+    disable_startup: true,
+    # Set port 0 to allow concurrent servers (uses random port)
+    tcp: [socket_opts: [port: 0]],
+    tls: [socket_opts: [port: 0]]
+  ]
+
 config :teiserver, Teiserver,
   certs: [
     keyfile: "priv/certs/localhost.key",
     certfile: "priv/certs/localhost.crt",
     cacertfile: "priv/certs/localhost.crt"
-  ],
-  ports: [
-    tcp: 9200,
-    tls: 9201
   ],
   test_mode: true,
   enable_hooks: false,

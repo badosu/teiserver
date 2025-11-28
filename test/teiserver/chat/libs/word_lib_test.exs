@@ -1,7 +1,7 @@
 defmodule Teiserver.Chat.WordLibTest do
   use Teiserver.DataCase
   alias Teiserver.Chat.WordLib
-  alias Teiserver.{Coordinator, Room, CacheUser}
+  alias Teiserver.{TeiserverTestLib, Room, CacheUser}
   alias Teiserver.Lobby.ChatLib
 
   import Teiserver.TeiserverTestLib,
@@ -17,7 +17,8 @@ defmodule Teiserver.Chat.WordLibTest do
   @moduletag :needs_attention
 
   setup do
-    Coordinator.start_coordinator()
+    TeiserverTestLib.start_coordinator()
+
     :ok
   end
 

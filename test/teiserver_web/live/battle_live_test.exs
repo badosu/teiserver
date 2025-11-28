@@ -84,9 +84,9 @@ defmodule TeiserverWeb.Live.BattleTest do
     end
 
     @tag :needs_attention
-    test "show - valid battle", %{conn: conn} do
+    test "show - valid battle", %{conn: conn} = context do
       # Lets create a battle
-      %{socket: host_socket, user: host_user} = TeiserverTestLib.auth_setup()
+      %{socket: host_socket, user: host_user} = TeiserverTestLib.auth_setup(context)
       CacheUser.add_roles(host_user, ["Bot"])
 
       _send_raw(
@@ -118,9 +118,9 @@ defmodule TeiserverWeb.Live.BattleTest do
       assert html =~ "LiveBattleShow"
       assert html =~ "Speed metal"
 
-      %{user: user1, socket: socket1} = TeiserverTestLib.auth_setup()
-      %{user: user2, socket: socket2} = TeiserverTestLib.auth_setup()
-      %{user: user3, socket: socket3} = TeiserverTestLib.auth_setup()
+      %{user: user1, socket: socket1} = TeiserverTestLib.auth_setup(context)
+      %{user: user2, socket: socket2} = TeiserverTestLib.auth_setup(context)
+      %{user: user3, socket: socket3} = TeiserverTestLib.auth_setup(context)
 
       _send_raw(socket1, "JOINBATTLE #{lobby_id} empty script_password\n")
       _send_raw(socket2, "JOINBATTLE #{lobby_id} empty script_password\n")

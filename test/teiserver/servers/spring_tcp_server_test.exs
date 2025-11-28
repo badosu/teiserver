@@ -1,20 +1,24 @@
 defmodule Teiserver.SpringTcpServerTest do
   use Teiserver.ServerCase, async: false
 
+  require Logger
+  import Mock
+
   alias Teiserver.Account.UserCacheLib
   alias Teiserver.{Account, Client, Room}
-  require Logger
+  alias Teiserver.TeiserverTestLib
 
   import Teiserver.TeiserverTestLib,
-    only: [raw_setup: 0, _send_raw: 2, _recv_raw: 1, _recv_until: 1, auth_setup: 0, new_user: 0]
+    only: [raw_setup: 1, _send_raw: 2, _recv_raw: 1, _recv_until: 1, auth_setup: 1, new_user: 0]
 
   setup do
-    Teiserver.Coordinator.start_coordinator()
-    %{socket: socket} = raw_setup()
-    {:ok, socket: socket}
+    TeiserverTestLib.start_coordinator()
+
+    :ok
   end
 
-  # test "ssl upgrade", %{socket: socket} do
+  # test "ssl upgrade", opts do
+  #   %{socket: socket} = raw_setup(opts)
   #   reply = _recv_raw(socket)
   #   assert reply == "TASSERVER 0.38-33-ga5f3b28 * 8201 0\n"
 
@@ -28,9 +32,11 @@ defmodule Teiserver.SpringTcpServerTest do
   #   _ = _recv_raw(socket)
   # end
 
-  test "tcp startup and exit", %{socket: socket} do
+  test "tcp startup and exit", opts do
     password = "X03MO1qnZdYdgyfeuILPmQ=="
     username = "test_user_tcpnew"
+
+    %{socket: socket} = raw_setup(opts)
 
     # We expect to be greeted by a welcome message
     reply = _recv_raw(socket)
@@ -107,9 +113,27 @@ defmodule Teiserver.SpringTcpServerTest do
     {:error, :closed} = :gen_tcp.recv(socket, 0, 1000)
   end
 
+  test "when redirect site config is set sends REDIRECT and closes", opts do
+    redirect_ip = "1.2.3.4"
+
+    with_mock(
+      Teiserver.Config,
+      [:passthrough],
+      get_site_config_cache: fn
+        "system.Redirect url" -> redirect_ip
+        other -> passthrough([other])
+      end
+    ) do
+      %{socket: socket} = raw_setup(opts)
+
+      assert _recv_raw(socket) == "REDIRECT #{redirect_ip} 9200\n"
+      {:error, :closed} = :gen_tcp.recv(socket, 0, 1000)
+    end
+  end
+
   @tag :needs_attention
-  test "bad sequences" do
-    %{socket: socket, user: user} = auth_setup()
+  test "bad sequences", context do
+    %{socket: socket, user: user} = auth_setup(context)
     client = Client.get_client_by_name(user.name)
     tcp_pid = client.tcp_pid
     coordinator_userid = Teiserver.Coordinator.get_coordinator_userid()
@@ -122,9 +146,9 @@ defmodule Teiserver.SpringTcpServerTest do
              coordinator_userid => %{lobby_id: nil}
            }
 
-    %{socket: s1, user: u1} = auth_setup()
-    %{socket: _s2, user: u2} = auth_setup()
-    %{socket: _s3, user: u3} = auth_setup()
+    %{socket: s1, user: u1} = auth_setup(context)
+    %{socket: _s2, user: u2} = auth_setup(context)
+    %{socket: _s3, user: u3} = auth_setup(context)
 
     u1_client = %{
       userid: u1.id,
@@ -337,11 +361,11 @@ defmodule Teiserver.SpringTcpServerTest do
   # but when ran with other tests around, it'll fail
   # the fault likely lies elsewhere, good luck to the brave soul tackling that
   @tag :needs_attention
-  test "dud users mode" do
+  test "dud users mode", context do
     # Here we're testing if the user isn't even known
     non_user = new_user()
-    %{user: dud} = auth_setup()
-    %{socket: socket, user: user} = auth_setup()
+    %{user: dud} = auth_setup(context)
+    %{socket: socket, user: user} = auth_setup(context)
 
     client = Client.get_client_by_name(user.name)
     tcp_pid = client.tcp_pid

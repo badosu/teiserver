@@ -46,28 +46,46 @@ config :esbuild,
     env: %{"NODE_PATH" => Path.expand("../deps", __DIR__)}
   ]
 
+config :teiserver, Teiserver.SpringTcpServer,
+  # Heatbeat interval in ms
+  heartbeat_interval: 30_000,
+  # Heartbeat timeout in seconds
+  heartbeat_timeout: 120,
+  # For each listener config see `:ranch.opts()`
+  # https://ninenines.eu/docs/en/ranch/2.2/manual/ranch/#_transport_opts_socketopts
+  listeners: [
+    tcp: [
+      max_connections: :infinity,
+      socket_opts: [
+        # this is may be overriden with env variable TEI_SPRING_TCP_PORT on config/runtime.exs
+        port: 8200,
+        nodelay: false,
+        delay_send: true
+      ]
+    ],
+    tls: [
+      max_connections: :infinity,
+      socket_opts: [
+        # this is may be overriden with env variable TEI_SPRING_TLS_PORT on config/runtime.exs
+        port: 8201,
+        nodelay: false,
+        delay_send: true
+      ]
+    ]
+  ]
+
 config :teiserver, Teiserver,
-  ports: [
-    tcp: 8200,
-    tls: 8201
-  ],
   website: [
     url: "mywebsite.com"
   ],
   enable_benchmark: false,
   enable_hooks: true,
-
-  # Heatbeat interval is ms
-  heartbeat_interval: 30_000,
-  # Heartbeat timeout is seconds
-  heartbeat_timeout: 120,
   test_mode: false,
   server_admin_name: "Server Admin",
   game_name: "Full game name",
   game_name_short: "Game",
   main_website: "https://site.com/",
   discord: nil,
-  default_spring_protocol: Teiserver.Protocols.Spring,
   github_repo: "https://github.com/beyond-all-reason/teiserver",
   enable_discord_bridge: true,
   enable_coordinator_mode: true,

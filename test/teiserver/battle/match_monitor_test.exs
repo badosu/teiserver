@@ -3,7 +3,7 @@ defmodule Teiserver.Battle.MatchMonitorTest do
 
   import Teiserver.TeiserverTestLib,
     only: [
-      auth_setup: 0,
+      auth_setup: 1,
       _send_raw: 2,
       _recv_raw: 1,
       _recv_until: 1
@@ -26,8 +26,8 @@ defmodule Teiserver.Battle.MatchMonitorTest do
   #      test/teiserver/battle/match_monitor_test.exs:31: (test)
   # with seed 273979
   @tag :needs_attention
-  test "spring send" do
-    %{socket: socket, user: _user} = auth_setup()
+  test "spring send", opts do
+    %{socket: socket, user: _user} = auth_setup(opts)
 
     # monitor_userid = Teiserver.cache_get(:application_metadata_cache, "teiserver_match_monitor_userid")
 

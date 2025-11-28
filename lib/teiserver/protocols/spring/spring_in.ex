@@ -32,34 +32,25 @@ defmodule Teiserver.Protocols.SpringIn do
   @status_3_window 1_000
   @status_10_window 60_000
 
-  @action_commands ~w(SAY SAYEX SAYPRIVATE SAYBATTLE SAYBATTLEPRIVATEEX JOINBATTLE LEAVEBATTLE)
-
   @spec data_in(String.t(), map()) :: map()
   def data_in(data, state) do
-    if Config.get_site_config_cache("debug.Print incoming messages") or
-         state.print_client_messages do
-      if String.contains?(data, "c.user.get_token") or String.contains?(data, "LOGIN") do
-        Logger.info("<-- #{state.username}: LOGIN/c.user.get_token")
-      else
-        Logger.info("<-- #{state.username}: #{Spring.format_log(data)}")
-      end
-    end
+    print_incoming_messages? =
+      state.print_client_messages or Config.get_site_config_cache("debug.Print incoming messages")
 
-    new_state =
+    if print_incoming_messages?,
+      do: print_incoming_messages(data, state)
+
+    state =
       if String.ends_with?(data, "\n") do
-        data = state.message_part <> data
-
-        data
+        (state.message_part <> data)
         |> String.split("\n")
-        |> Enum.reduce(state, fn data, acc ->
-          handle(data, acc)
-        end)
+        |> Enum.reduce(state, &handle/2)
         |> Map.put(:message_part, "")
       else
         %{state | message_part: state.message_part <> data}
       end
 
-    new_state
+    %{state | last_msg: System.system_time(:second)}
   end
 
   # The main entry point for the module and the wrapper around
@@ -69,42 +60,23 @@ defmodule Teiserver.Protocols.SpringIn do
   def handle("\r\n", state), do: state
 
   def handle(data, state) do
-    tuple =
-      if String.valid?(data) do
-        parse_in_message(data)
-      else
-        Logger.error("Invalid characters in data: '#{data}'")
+    parse_valid_message(data)
+    |> case do
+      {command, data, msg_id} ->
+        do_handle(command, data, msg_id, state)
 
-        nil
-      end
+      nil ->
+        Logger.debug("Bad match on command: '#{data}'")
 
-    state =
-      case tuple do
-        {command, data, msg_id} ->
-          state = do_handle(command, data, msg_id, state)
-
-          if Enum.member?(@action_commands, command) do
-            Map.put(state, :last_action_timestamp, System.system_time(:second))
-          else
-            state
-          end
-
-        nil ->
-          Logger.debug("Bad match on command: '#{data}'")
-          state
-      end
-
-    if state == nil do
-      throw("nil state returned while handling: #{data}")
+        state
     end
+    |> case do
+      nil ->
+        throw("nil state returned while handling: #{data}")
 
-    %{state | last_msg: System.system_time(:second)}
-  end
-
-  defp _clean(nil), do: nil
-
-  defp _clean([_, msg_id, command, data]) do
-    {command, String.trim(data), String.trim(msg_id)}
+      state ->
+        %{state | client_messages: state.client_messages + 1}
+    end
   end
 
   # Spring matchmaking disabled
@@ -400,9 +372,8 @@ defmodule Teiserver.Protocols.SpringIn do
     end
   end
 
-  defp do_handle("EXIT", _reason, _msg_id, state) do
-    Client.disconnect(state.userid, "Spring EXIT command")
-    send(self(), :terminate)
+  defp do_handle("EXIT", reason, _msg_id, state) do
+    send(self(), {:terminate, "EXIT: #{reason}"})
     state
   end
 
@@ -1420,6 +1391,30 @@ defmodule Teiserver.Protocols.SpringIn do
     ~r/^(#[0-9]+ )?([a-z_A-Z0-9\.]+)(.*)?$/u
     |> Regex.run(raw)
     |> _clean()
+  end
+
+  defp _clean(nil), do: nil
+
+  defp _clean([_, msg_id, command, data]) do
+    {command, String.trim(data), String.trim(msg_id)}
+  end
+
+  defp parse_valid_message(data) do
+    if String.valid?(data) do
+      parse_in_message(data)
+    else
+      Logger.error("Invalid characters in data: '#{data}'")
+
+      nil
+    end
+  end
+
+  defp print_incoming_messages(data, state) do
+    if String.contains?(data, "c.user.get_token") or String.contains?(data, "LOGIN") do
+      Logger.info("<-- #{state.username}: LOGIN/c.user.get_token")
+    else
+      Logger.info("<-- #{state.username}: #{Spring.format_log(data)}")
+    end
   end
 
   # @spec engage_flood_protection(map()) :: {:stop, String.t(), map()}

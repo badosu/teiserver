@@ -14,8 +14,10 @@ defmodule Teiserver.Telemetry.SimpleServerEvent do
   @spec changeset(map(), map()) :: Ecto.Changeset.t()
   def changeset(struct, params \\ %{}) do
     struct
-    |> cast(params, ~w(user_id event_type_id timestamp)a)
-    |> validate_required(~w(event_type_id timestamp)a)
+    |> cast(params, [:user_id, :event_type_id, :timestamp])
+    |> validate_required([:event_type_id, :timestamp])
+    |> foreign_key_constraint(:user_id)
+    |> foreign_key_constraint(:event_type_id)
   end
 
   @spec authorize(atom, Plug.Conn.t(), map()) :: boolean

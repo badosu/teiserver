@@ -3,14 +3,14 @@ defmodule Teiserver.SpringTelemetryTest do
   alias Teiserver.Telemetry
 
   import Teiserver.TeiserverTestLib,
-    only: [auth_setup: 0, _send_raw: 2, _recv_raw: 1, raw_setup: 0]
+    only: [auth_setup: 1, _send_raw: 2, _recv_raw: 1, raw_setup: 1]
 
-  setup do
-    %{socket: socket, user: user} = auth_setup()
+  setup(opts) do
+    %{socket: socket, user: user} = auth_setup(opts)
     {:ok, socket: socket, user: user}
   end
 
-  test "upload_infolog call", %{socket: socket} do
+  test "upload_infolog call", %{socket: socket} = opts do
     # No match
     _send_raw(socket, "c.telemetry.upload_infolog event_name e30=-- rXTrJC0nAdWUmCH8Q7+kWQ==--\n")
     reply = _recv_raw(socket)
@@ -71,7 +71,7 @@ defmodule Teiserver.SpringTelemetryTest do
     assert infolog.contents == "Lorem ipsum\n\n''\\'^&&!"
 
     # Unauth
-    %{socket: socket_raw} = raw_setup()
+    %{socket: socket_raw} = raw_setup(opts)
     _recv_raw(socket_raw)
 
     _send_raw(
@@ -91,7 +91,7 @@ defmodule Teiserver.SpringTelemetryTest do
   end
 
   @tag :needs_attention
-  test "log_client_event call", %{socket: socket} do
+  test "log_client_event call", %{socket: socket} = opts do
     # Bad/malformed data
     _send_raw(
       socket,
@@ -113,7 +113,7 @@ defmodule Teiserver.SpringTelemetryTest do
     assert Enum.count(Telemetry.list_complex_client_events()) == 1
 
     # Unauth
-    %{socket: socket_raw} = raw_setup()
+    %{socket: socket_raw} = raw_setup(opts)
     _recv_raw(socket_raw)
     _send_raw(socket_raw, "c.telemetry.log_client_event event_name e30= TXlWYWx1ZUdvZXNoZXJl\n")
     reply = _recv_raw(socket_raw)
@@ -124,7 +124,7 @@ defmodule Teiserver.SpringTelemetryTest do
   end
 
   @tag :needs_attention
-  test "update_client_property call", %{socket: socket} do
+  test "update_client_property call", %{socket: socket} = opts do
     # Bad/malformed data
     _send_raw(
       socket,
@@ -148,7 +148,7 @@ defmodule Teiserver.SpringTelemetryTest do
     assert Enum.empty?(Telemetry.list_complex_anon_events())
 
     # Unauth
-    %{socket: socket_raw} = raw_setup()
+    %{socket: socket_raw} = raw_setup(opts)
     _recv_raw(socket_raw)
 
     _send_raw(

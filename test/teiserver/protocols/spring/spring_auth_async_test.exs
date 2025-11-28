@@ -1,18 +1,17 @@
 defmodule Teiserver.SpringAuthAsyncTest do
   use Teiserver.ServerCase, async: false
   alias Teiserver.Client
-  alias Teiserver.Protocols.Spring
 
   import Teiserver.TeiserverTestLib,
     only: [
-      async_auth_setup: 1,
+      async_auth_setup: 0,
       _send_lines: 2,
       _recv_lines: 0,
       _recv_lines: 1
     ]
 
   setup do
-    %{user: user, state: state} = async_auth_setup(Spring)
+    %{user: user, state: state} = async_auth_setup()
     {:ok, state: state, user: user}
   end
 

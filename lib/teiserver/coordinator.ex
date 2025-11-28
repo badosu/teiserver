@@ -14,20 +14,16 @@ defmodule Teiserver.Coordinator do
       })
 
     case result do
-      {:ok, _coordinator_pid} -> :ok
+      {:ok, coordinator_pid} -> {:ok, coordinator_pid}
       {:failure, "Already started"} -> :already_started
     end
   end
 
   @spec start_coordinator() :: :ok | {:failure, String.t()}
   def start_coordinator() do
-    cond do
-      get_coordinator_pid() != nil ->
-        {:failure, "Already started"}
-
-      true ->
-        do_start()
-    end
+    if get_coordinator_pid() == nil,
+      do: do_start(),
+      else: {:failure, "Already started"}
   end
 
   @spec get_coordinator_userid() :: T.userid()

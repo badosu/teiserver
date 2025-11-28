@@ -5,10 +5,10 @@ defmodule Teiserver.BridgeServerTest do
   alias Teiserver.Bridge.BridgeServer
 
   import Teiserver.TeiserverTestLib,
-    only: [auth_setup: 0]
+    only: [auth_setup: 1]
 
-  test "bridge server" do
-    %{user: spring_user} = auth_setup()
+  test "bridge server", opts do
+    %{user: spring_user} = auth_setup(opts)
 
     bridge_userid = BridgeServer.get_bridge_userid()
 

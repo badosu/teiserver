@@ -29,7 +29,7 @@ defmodule Teiserver.Protocols.SpringOut do
 
   @spec reply(atom(), atom(), nil | String.t() | tuple() | list(), String.t(), map) :: map
   def reply(namespace, reply_cmd, data, msg_id, state) do
-    msg =
+    messages =
       case namespace do
         :battle -> BattleOut.do_reply(reply_cmd, data, state)
         :lobby_policy -> LobbyPolicyOut.do_reply(reply_cmd, data, state)
@@ -38,29 +38,29 @@ defmodule Teiserver.Protocols.SpringOut do
         :spring -> do_reply(reply_cmd, data)
         :party -> PartyOut.do_reply(reply_cmd, data, state)
       end
+      |> List.wrap()
 
-    if Config.get_site_config_cache("debug.Print outgoing messages") or
-         state.print_server_messages do
-      if is_list(msg) do
-        msg
-        |> Enum.each(fn m ->
-          Logger.info("--> #{state.username}: #{Spring.format_log(m)}")
-        end)
-      else
-        Logger.info("--> #{state.username}: #{Spring.format_log(msg)}")
+    print_server_messages? =
+      state.print_server_messages or Config.get_site_config_cache("debug.Print outgoing messages")
+
+    if print_server_messages? do
+      for line <- messages do
+        Logger.info("--> #{state.username}: #{Spring.format_log(line)}")
       end
     end
 
-    if Enum.member?([nil, ""], msg) do
+    if messages in [nil, ""] do
       state
     else
-      send(self(), :server_sent_message)
-      _send(msg, msg_id, state)
+      send(self(), {:server_sent_messages, length(messages)})
+      _send(messages, msg_id, state)
       state
     end
   end
 
-  @spec do_reply(atom(), String.t() | list()) :: String.t() | List.t()
+  @spec do_reply(atom(), any()) :: String.t() | List.t()
+  defp do_reply(request_name, data)
+
   defp do_reply(:login_accepted, user) do
     "ACCEPTED #{user}\n"
   end
@@ -87,8 +87,8 @@ defmodule Teiserver.Protocols.SpringOut do
     "TASSERVER 0.38-33-ga5f3b28 * 8201 0\n"
   end
 
-  defp do_reply(:redirect, url) do
-    "REDIRECT #{url} #{Application.get_env(:teiserver, Teiserver)[:ports][:tcp]}\n"
+  defp do_reply(:redirect, {ip, port}) do
+    "REDIRECT #{ip} #{port}\n"
   end
 
   defp do_reply(:compflags, nil) do
@@ -807,7 +807,8 @@ defmodule Teiserver.Protocols.SpringOut do
           case Map.has_key?(state_acc.known_users, member_id) do
             false ->
               client = Client.get_client_by_id(member_id)
-              state_acc.protocol_out.reply(:user_logged_in, client, nil, state)
+
+              reply(:user_logged_in, client, nil, state)
 
               %{
                 state_acc

@@ -12,8 +12,8 @@ defmodule Teiserver.Telemetry.SimpleServerEventType do
   @spec changeset(map(), map()) :: Ecto.Changeset.t()
   def changeset(struct, params \\ %{}) do
     struct
-    |> cast(params, ~w(name)a)
-    |> validate_required(~w(name)a)
+    |> cast(params, [:name])
+    |> validate_required([:name])
   end
 
   @spec authorize(atom, Plug.Conn.t(), map()) :: boolean

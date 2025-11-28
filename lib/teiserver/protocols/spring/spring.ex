@@ -4,10 +4,10 @@ defmodule Teiserver.Protocols.Spring do
   alias Teiserver.Protocols.SpringIn
   alias Teiserver.Protocols.SpringOut
 
-  @spec protocol_in :: Teiserver.Protocols.SpringIn
+  @spec protocol_in :: SpringIn
   def protocol_in(), do: SpringIn
 
-  @spec protocol_out :: Teiserver.Protocols.SpringOut
+  @spec protocol_out :: SpringOut
   def protocol_out(), do: SpringOut
 
   @spec parse_client_status(String.t()) :: map()

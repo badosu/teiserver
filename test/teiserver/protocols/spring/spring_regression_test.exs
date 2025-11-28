@@ -7,13 +7,13 @@ defmodule Teiserver.SpringRegressionTest do
 
   import Teiserver.TeiserverTestLib,
     only: [
-      auth_setup: 0,
+      auth_setup: 1,
       _send_raw: 2,
       _recv_until: 1
     ]
 
-  setup do
-    %{socket: socket, user: user} = auth_setup()
+  setup(opts) do
+    %{socket: socket, user: user} = auth_setup(opts)
     {:ok, socket: socket, user: user}
   end
 

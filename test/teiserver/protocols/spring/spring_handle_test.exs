@@ -6,10 +6,9 @@ defmodule Teiserver.SpringHandleTest do
   use Teiserver.DataCase, async: false
   alias Teiserver.TeiserverTestLib
   alias Teiserver.Protocols.SpringIn
-  alias Teiserver.Protocols.SpringOut
 
   test "LOGIN and EXIT" do
-    state = TeiserverTestLib.mock_state_raw(SpringIn, SpringOut)
+    state = TeiserverTestLib.mock_state_raw()
 
     SpringIn.handle(
       "LOGIN TestUser X03MO1qnZdYdgyfeuILPmQ== 0 * LuaLobby Chobby\t1993717506 0d04a635e200f308\tb sp\n",
@@ -21,12 +20,12 @@ defmodule Teiserver.SpringHandleTest do
   end
 
   test "EXIT" do
-    state = TeiserverTestLib.mock_state_auth(SpringIn, SpringOut)
+    state = TeiserverTestLib.mock_state_auth()
     SpringIn.handle("EXIT", state)
   end
 
   test "LEAVEBATTLE" do
-    state = TeiserverTestLib.mock_state_auth(SpringIn, SpringOut)
+    state = TeiserverTestLib.mock_state_auth()
     state = %{state | lobby_id: 1}
     SpringIn.handle("LEAVEBATTLE", state)
   end
@@ -38,7 +37,7 @@ defmodule Teiserver.SpringHandleTest do
       ""
     ]
 
-    state = TeiserverTestLib.mock_state_auth(SpringIn, SpringOut)
+    state = TeiserverTestLib.mock_state_auth()
     state = %{state | lobby_id: 1}
 
     for v <- values do

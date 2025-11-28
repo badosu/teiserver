@@ -324,33 +324,30 @@ defmodule Teiserver.Coordinator.CoordinatorServer do
         ]
       )
 
-    case user do
-      nil ->
-        # Make account
-        {:ok, account} =
-          Account.script_create_user(%{
-            name: "Coordinator",
-            email: "coordinator@teiserver.local",
-            icon: "fa-solid fa-sitemap",
-            colour: "#AA00AA",
-            password: Account.make_bot_password(),
-            roles: ["Bot", "Verified"],
-            data: %{
-              bot: true,
-              moderator: true,
-              lobby_client: "Teiserver Internal Process"
-            }
-          })
-
-        Account.update_user_stat(account.id, %{
-          country_override: Application.get_env(:teiserver, Teiserver)[:server_flag]
+    with nil <- user do
+      # Make account
+      {:ok, account} =
+        Account.script_create_user(%{
+          name: "Coordinator",
+          email: "coordinator@teiserver.local",
+          icon: "fa-solid fa-sitemap",
+          colour: "#AA00AA",
+          password: Account.make_bot_password(),
+          roles: ["Bot", "Verified"],
+          data: %{
+            bot: true,
+            moderator: true,
+            lobby_client: "Teiserver Internal Process"
+          }
         })
 
-        CacheUser.recache_user(account.id)
-        account
+      Account.update_user_stat(account.id, %{
+        country_override: Application.get_env(:teiserver, Teiserver)[:server_flag]
+      })
 
-      account ->
-        account
+      CacheUser.recache_user(account.id)
+
+      account
     end
   end
 

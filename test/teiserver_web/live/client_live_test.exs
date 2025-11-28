@@ -17,7 +17,7 @@ defmodule TeiserverWeb.Live.ClientTest do
 
   describe "client live" do
     @tag :needs_attention
-    test "index", %{conn: conn} do
+    test "index", %{conn: conn} = context do
       {:ok, view, _html} = live(conn, "/teiserver/admin/client")
 
       # Sadly because other clients can still be logged in after their tests we can't actually test this bit...
@@ -26,7 +26,7 @@ defmodule TeiserverWeb.Live.ClientTest do
       # Sleeps are to allow for the throttle server to update us
 
       # Time to add a client
-      %{socket: socket1, user: user1} = TeiserverTestLib.auth_setup()
+      %{socket: socket1, user: user1} = TeiserverTestLib.auth_setup(context)
 
       :timer.sleep(@sleep_time)
       html = render(view)
@@ -34,7 +34,7 @@ defmodule TeiserverWeb.Live.ClientTest do
       assert html =~ "#{user1.name}"
 
       # Another
-      %{socket: socket2, user: user2} = TeiserverTestLib.auth_setup()
+      %{socket: socket2, user: user2} = TeiserverTestLib.auth_setup(context)
       :timer.sleep(@sleep_time)
       html = render(view)
       assert html =~ "Clients - "
@@ -59,8 +59,8 @@ defmodule TeiserverWeb.Live.ClientTest do
     end
 
     @tag :needs_attention
-    test "show - valid client", %{conn: conn} do
-      %{socket: socket, user: user} = TeiserverTestLib.auth_setup()
+    test "show - valid client", %{conn: conn} = context do
+      %{socket: socket, user: user} = TeiserverTestLib.auth_setup(context)
       # client = Client.get_client_by_id(user.id)
 
       {:ok, view, html} = live(conn, "/teiserver/admin/client/#{user.id}")
@@ -83,8 +83,8 @@ defmodule TeiserverWeb.Live.ClientTest do
                live(conn, "/teiserver/admin/client/0")
     end
 
-    test "force disconnect client", %{conn: conn} do
-      %{user: user} = TeiserverTestLib.auth_setup()
+    test "force disconnect client", %{conn: conn} = context do
+      %{user: user} = TeiserverTestLib.auth_setup(context)
 
       {:ok, view, _html} = live(conn, "/teiserver/admin/client/#{user.id}")
       assert Client.get_client_by_id(user.id) != nil

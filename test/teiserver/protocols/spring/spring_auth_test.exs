@@ -8,8 +8,8 @@ defmodule Teiserver.SpringAuthTest do
 
   import Teiserver.TeiserverTestLib,
     only: [
-      auth_setup: 0,
       auth_setup: 1,
+      auth_setup: 2,
       _send_raw: 2,
       _recv_raw: 1,
       # _recv_binary: 1,
@@ -20,8 +20,8 @@ defmodule Teiserver.SpringAuthTest do
 
   import Teiserver.Support.Polling, only: [poll_until: 3]
 
-  setup do
-    %{socket: socket, user: user} = auth_setup()
+  setup(opts) do
+    %{socket: socket, user: user} = auth_setup(opts)
     {:ok, socket: socket, user: user}
   end
 
@@ -83,9 +83,9 @@ defmodule Teiserver.SpringAuthTest do
              "SERVERMSG No incomming match for MYSTATUS with data '\"\"'. Userid #{user.id}\n"
   end
 
-  test "IGNORELIST, IGNORE, UNIGNORE, SAYPRIVATE", %{socket: socket1, user: user} do
+  test "IGNORELIST, IGNORE, UNIGNORE, SAYPRIVATE", %{socket: socket1, user: user} = opts do
     user2 = new_user()
-    %{socket: socket2} = auth_setup(user2)
+    %{socket: socket2} = auth_setup(opts, user2)
     reply = _recv_raw(socket1)
     assert reply =~ "ADDUSER #{user2.name} ?? #{user2.id} LuaLobby Chobby\n"
     assert reply =~ " LuaLobby Chobby\n"
@@ -412,11 +412,11 @@ CLIENTS test_room #{user.name}\n"
     assert reply =~ "s.battles.id_list "
   end
 
-  test "RENAMEACCOUNT", %{socket: socket, user: user} do
+  test "RENAMEACCOUNT", %{socket: socket, user: user} = opts do
     old_name = user.name
     new_name = "test_user_rename"
     userid = user.id
-    %{socket: watcher, user: watcher_user} = auth_setup()
+    %{socket: watcher, user: watcher_user} = auth_setup(opts)
     _recv_raw(socket)
 
     # Check our starting situation
@@ -465,7 +465,7 @@ CLIENTS test_room #{user.name}\n"
 
     # No need to send an exit, it's already sorted out!
     # we should try to login though, it should be rejected as rename in progress
-    %{socket: socket} = Teiserver.TeiserverTestLib.raw_setup()
+    %{socket: socket} = Teiserver.TeiserverTestLib.raw_setup(opts)
     _ = _recv_raw(socket)
 
     # Now we get flood protection after the rename

@@ -84,6 +84,7 @@ defmodule Teiserver.Battle.LobbyServerTest do
         max_players: 12
       },
       password: nil,
+      passworded: false,
       module: to_string(__MODULE__)
     }
 

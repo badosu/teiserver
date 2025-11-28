@@ -252,19 +252,16 @@ defmodule Teiserver.Client do
 
   @spec disconnect(T.userid(), nil | String.t()) :: nil | :ok | {:error, any}
   def disconnect(userid, reason \\ nil) do
-    case get_client_by_id(userid) do
-      nil -> nil
-      client -> do_disconnect(client, reason, false)
-    end
+    do_disconnect(get_client_by_id(userid), reason, false)
   end
 
   @spec kick_disconnect(T.userid(), nil | String.t()) :: nil | :ok | {:error, any}
   def kick_disconnect(userid, reason \\ nil) do
-    case get_client_by_id(userid) do
-      nil -> nil
-      client -> do_disconnect(client, reason, true)
-    end
+    do_disconnect(get_client_by_id(userid), reason, true)
   end
+
+  # If user couldn't be found, nothing to be done
+  defp do_disconnect(nil, _reason, _kick), do: nil
 
   # If it's a test user, don't worry about actually disconnecting it
   defp do_disconnect(client, reason, kick) do
@@ -272,7 +269,15 @@ defmodule Teiserver.Client do
       Coordinator.send_to_host(client.lobby_id, "!gkick #{client.name}")
     end
 
-    Telemetry.log_simple_server_event(client.userid, "disconnect:#{reason}")
+    event_type = "disconnect:#{reason}"
+
+    with {:error, changeset} <-
+           Telemetry.log_simple_server_event(client.userid, event_type) do
+      Logger.error(
+        "Failed to create event for #{inspect(changeset.changes)}: #{inspect(changeset.errors)}"
+      )
+    end
+
     Lobby.remove_user_from_any_lobby(client.userid)
     Room.remove_user_from_any_room(client.userid)
     leave_rooms(client.userid)

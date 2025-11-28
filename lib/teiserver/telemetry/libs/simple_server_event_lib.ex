@@ -15,34 +15,20 @@ defmodule Teiserver.Telemetry.SimpleServerEventLib do
 
   @spec log_simple_server_event(integer, String.t()) ::
           {:error, Ecto.Changeset} | {:ok, SimpleServerEvent}
-  def log_simple_server_event(userid, event_type_name) do
+  def log_simple_server_event(user_id, event_type_name) do
     event_type_id = Telemetry.get_or_add_simple_server_event_type(event_type_name)
 
     result =
       create_simple_server_event(%{
-        user_id: userid,
+        user_id: user_id,
         event_type_id: event_type_id,
         timestamp: Timex.now()
       })
 
-    case result do
-      {:ok, _event} ->
-        if Enum.member?(@broadcast_event_types, event_type_name) do
-          PubSub.broadcast(
-            Teiserver.PubSub,
-            "telemetry_simple_server_events",
-            %{
-              channel: "telemetry_simple_server_events",
-              userid: userid,
-              event_type_name: event_type_name
-            }
-          )
-        end
+    with {:ok, event} <- result do
+      maybe_broadcast_event(user_id, event_type_name)
 
-        result
-
-      _ ->
-        result
+      {:ok, event}
     end
   end
 
@@ -149,5 +135,19 @@ defmodule Teiserver.Telemetry.SimpleServerEventLib do
   """
   def change_simple_server_event(%SimpleServerEvent{} = simple_server_event, attrs \\ %{}) do
     SimpleServerEvent.changeset(simple_server_event, attrs)
+  end
+
+  defp maybe_broadcast_event(user_id, event_type_name) do
+    if Enum.member?(@broadcast_event_types, event_type_name) do
+      PubSub.broadcast(
+        Teiserver.PubSub,
+        "telemetry_simple_server_events",
+        %{
+          channel: "telemetry_simple_server_events",
+          userid: user_id,
+          event_type_name: event_type_name
+        }
+      )
+    end
   end
 end

@@ -1,5 +1,7 @@
 # Taken from https://gitlab.com/code-stats/code-stats/-/blob/b1cf53462a3fa34369eaa06494754c7ae38aed2a/lib/code_stats/config_helpers.ex
 defmodule Teiserver.ConfigHelpers do
+  require Logger
+
   @type config_type :: :str | :int | :bool | :json
 
   @doc """
